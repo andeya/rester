@@ -42,6 +42,9 @@ type (
 	}
 )
 
+// ErrEmpty no method error
+var ErrEmpty = errors.New("no method chain found")
+
 // New creates a chained execution function.
 // NOTE:
 //  The method of specifying the name cannot have a return value
@@ -56,7 +59,7 @@ func New(obj NestedStruct, methodName string) (Func, error) {
 	}
 	ctl.makeMethods(0, ctl.recv)
 	if len(ctl.methods) == 0 {
-		return nil, errors.New("no method chain found")
+		return nil, ErrEmpty
 	}
 	return ctl.newChainFunc(), nil
 }
