@@ -4,6 +4,7 @@ go 1.14
 
 require (
 	github.com/bytedance/go-tagexpr v2.5.0+incompatible
+	github.com/bytedance/json v0.0.0-20190516032711-0d89175f1949
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gogo/protobuf v1.2.1
 	github.com/golang/protobuf v1.3.3 // indirect
