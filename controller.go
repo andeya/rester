@@ -44,61 +44,20 @@ type (
 var _ Controller = new(BaseController)
 var binder = binding.New(nil).SetLooseZeroMode(true)
 
-// MustNewHandlerFuncMap creates fasthttp.RequestHandler
-func MustNewHandlerFuncMap(c Controller) map[string]fasthttp.RequestHandler {
-	handlerMap, err := NewHandlerFuncMap(c)
+// MustToHandlers converts the Controller to map {httpMethod:fasthttp.RequestHandler}
+// NOTE:
+//  panic when something goes wrong
+func MustToHandlers(c Controller) map[string]fasthttp.RequestHandler {
+	handlers, err := ToHandlers(c)
 	if err != nil {
 		panic(err)
 	}
-	return handlerMap
+	return handlers
 }
 
-type argsRequestCtx struct {
-	*fasthttp.RequestCtx
-}
-
-func (a argsRequestCtx) Init(recv chain.NestedStruct) error {
-	c := recv.(Controller)
-	c.setContext(a.RequestCtx)
-	return nil
-}
-
-func (a argsRequestCtx) Arg(recvType reflect.Type, idx int, in reflect.Type) (reflect.Value, error) {
-	var ptrNum int
-	for in.Kind() == reflect.Ptr {
-		in = in.Elem()
-		ptrNum++
-	}
-	vPtr := reflect.New(in)
-	reqRecvPtr := vPtr.Interface()
-	err := binder.BindAndValidate(reqRecvPtr, a.RequestCtx)
-	if err != nil {
-		return reflect.Value{}, &CodeMsg{400, err.Error()}
-	}
-	return ameda.ReferenceValue(vPtr, ptrNum-1), nil
-}
-
-func newFinder(httpMethod string) chain.FindFunc {
-	findMethod := chain.FindName(httpMethod)
-	findAny := chain.FindName(anyMethod)
-	return func(m reflect.Method) (ok bool, err error) {
-		ok, err = findMethod(m)
-		if !ok && err == nil {
-			ok, err = findAny(m)
-		}
-		if !ok || err != nil {
-			return
-		}
-		if m.Type.NumIn() > 2 {
-			return false, fmt.Errorf("%s.%s has more than two input parameters", m.Type.In(0).String(), m.Name)
-		}
-		return true, nil
-	}
-}
-
-// NewHandlerFuncMap parses the Controller to generate a fasthttp.RequestHandler map with http method as the key
+// ToHandlers converts the Controller to map {httpMethod:fasthttp.RequestHandler}
 // NOTE: Any means all http methods
-func NewHandlerFuncMap(c Controller) (map[string]fasthttp.RequestHandler, error) {
+func ToHandlers(c Controller) (map[string]fasthttp.RequestHandler, error) {
 	handlers := make(map[string]fasthttp.RequestHandler)
 	corsMethods := make(map[string]struct{})
 	for _, httpMethod := range httpMethodList {
@@ -295,4 +254,47 @@ func (c *CodeMsg) Error() string {
 		return "<nil>"
 	}
 	return fmt.Sprintf("code=%d, msg=%s", c.Code, c.Msg)
+}
+
+type argsRequestCtx struct {
+	*fasthttp.RequestCtx
+}
+
+func (a argsRequestCtx) Init(recv chain.NestedStruct) error {
+	c := recv.(Controller)
+	c.setContext(a.RequestCtx)
+	return nil
+}
+
+func (a argsRequestCtx) Arg(recvType reflect.Type, idx int, in reflect.Type) (reflect.Value, error) {
+	var ptrNum int
+	for in.Kind() == reflect.Ptr {
+		in = in.Elem()
+		ptrNum++
+	}
+	vPtr := reflect.New(in)
+	reqRecvPtr := vPtr.Interface()
+	err := binder.BindAndValidate(reqRecvPtr, a.RequestCtx)
+	if err != nil {
+		return reflect.Value{}, &CodeMsg{400, err.Error()}
+	}
+	return ameda.ReferenceValue(vPtr, ptrNum-1), nil
+}
+
+func newFinder(httpMethod string) chain.FindFunc {
+	findMethod := chain.FindName(httpMethod)
+	findAny := chain.FindName(anyMethod)
+	return func(m reflect.Method) (ok bool, err error) {
+		ok, err = findMethod(m)
+		if !ok && err == nil {
+			ok, err = findAny(m)
+		}
+		if !ok || err != nil {
+			return
+		}
+		if m.Type.NumIn() > 2 {
+			return false, fmt.Errorf("%s.%s has more than two input parameters", m.Type.In(0).String(), m.Name)
+		}
+		return true, nil
+	}
 }
