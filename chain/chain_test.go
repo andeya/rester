@@ -1,6 +1,7 @@
 package chain
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -18,6 +19,10 @@ func (T1) M1() {
 func (*T1) M2(args string) {
 	fmt.Printf("===== calling T1.M2, args=%s\n", args)
 }
+func (t *T1) M4(args string) {
+	fmt.Printf("===== calling T1.M4, args=%s\n", args)
+	t.Abort(errors.New("T1.M4 test abort"))
+}
 
 type T2 struct {
 	T1
@@ -32,6 +37,9 @@ func (*T2) M2(args string) {
 func (*T2) M3(t *testing.T, args int) {
 	assert.Equal(t, 10, args)
 	t.Logf("===== calling T2.M3, args=%d\n", args)
+}
+func (*T2) M4(args string) {
+	panic("should be aborted")
 }
 
 type Context struct {
@@ -71,4 +79,16 @@ func TestNew(t *testing.T) {
 	assert.NoError(t, err)
 	err = chain(ctx)
 	assert.NoError(t, err)
+
+	//
+	chain, err = New(new(T1), "M4")
+	assert.NoError(t, err)
+	err = chain(ctx)
+	assert.EqualError(t, err, "T1.M4 test abort")
+
+	//
+	chain, err = New(new(T2), "M4")
+	assert.NoError(t, err)
+	err = chain(ctx)
+	assert.EqualError(t, err, "T1.M4 test abort")
 }
