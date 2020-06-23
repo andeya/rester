@@ -62,6 +62,20 @@ func (t *T2) M6(test *testing.T) error {
 	return nil
 }
 
+type T3 struct {
+	_ struct{}
+	T2
+}
+
+func (*T3) M3(t *testing.T, args int) {
+	assert.Equal(t, 10, args)
+	t.Logf("===== calling T3.M3, args=%d\n", args)
+}
+
+func (t *T3) M6(test *testing.T, args string) {
+	test.Logf("===== calling T3.M6, args=%s", args)
+}
+
 type Context struct {
 	t *testing.T
 }
@@ -125,4 +139,12 @@ func TestNew(t *testing.T) {
 
 	_, err = New(new(T2), FindName("M6"))
 	assert.EqualError(t, err, "*chain.T2.M6 has out parameters")
+
+	_, err = New(new(T3), FindName("M6"))
+	assert.EqualError(t, err, "*chain.T2.M6 has out parameters")
+
+	fn, err = New(new(T3), FindName("M3"))
+	assert.NoError(t, err)
+	err = fn(ctx)
+	assert.NoError(t, err)
 }
