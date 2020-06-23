@@ -8,7 +8,7 @@ import (
 const abortIndex int8 = math.MaxInt8 / 2
 
 type Base struct {
-	argsFactory ArgsFactory
+	argsFactory Args
 	recvs       []reflect.Value
 	methods     []methodFunc
 	index       int8
@@ -20,7 +20,7 @@ var baseType = reflect.TypeOf(new(Base)).Elem()
 
 func (Base) internal(internalType) {}
 
-func (b *Base) init(argsFactory ArgsFactory, recvs []reflect.Value, methods []methodFunc) {
+func (b *Base) init(argsFactory Args, recvs []reflect.Value, methods []methodFunc) {
 	b.argsFactory = argsFactory
 	b.recvs = recvs
 	b.methods = methods

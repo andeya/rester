@@ -11,19 +11,22 @@ import (
 )
 
 type (
+	// NestedStruct nested structure carrying method chain
 	NestedStruct interface {
 		internal(internalType)
-		init(ArgsFactory, []reflect.Value, []methodFunc)
+		init(Args, []reflect.Value, []methodFunc)
 		newArg(idx int, in reflect.Type) (reflect.Value, error)
 		exec() error
 		Next()
 		Abort(error)
 		Err() error
 	}
-	ArgsFactory interface {
+	// Args create input argument
+	Args interface {
 		NewArg(idx int, in reflect.Type) (reflect.Value, error)
 	}
-	ChainFunc    func(ArgsFactory) error
+	// Func function to execute method chain
+	Func         func(Args) error
 	methodFunc   func(base *Base, recv reflect.Value)
 	internalType struct{}
 	controller   struct {
@@ -42,7 +45,7 @@ type (
 // New creates a chained execution function.
 // NOTE:
 //  The method of specifying the name cannot have a return value
-func New(obj NestedStruct, methodName string) (ChainFunc, error) {
+func New(obj NestedStruct, methodName string) (Func, error) {
 	ctl := controller{
 		recv:       ameda.DereferenceImplementType(reflect.ValueOf(obj)),
 		methodName: methodName,
@@ -69,8 +72,8 @@ func (c *controller) checkMethodName() error {
 	return nil
 }
 
-func (c *controller) newChainFunc() ChainFunc {
-	return func(args ArgsFactory) error {
+func (c *controller) newChainFunc() Func {
+	return func(args Args) error {
 		topRecv, recvs := c.newRecvs()
 		topRecv.init(args, recvs, c.methods)
 		return topRecv.exec()
