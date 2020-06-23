@@ -16,13 +16,16 @@ type T1 struct {
 func (T1) M1() {
 	fmt.Println("===== calling T1.M1")
 }
+
 func (*T1) M2(args string) {
 	fmt.Printf("===== calling T1.M2, args=%s\n", args)
 }
+
 func (t *T1) M4(args string) {
 	fmt.Printf("===== calling T1.M4, args=%s\n", args)
 	t.Abort(errors.New("T1.M4 test abort"))
 }
+
 func (t *T1) M5(test *testing.T, args string) {
 	test.Logf("===== calling T1.M5 start, args=%s", args)
 	t.Next()
@@ -34,19 +37,23 @@ type T2 struct {
 	T1
 }
 
-func (T2) M1() {
-	fmt.Println("===== calling T2.M1")
+func (T2) M1(args string) {
+	fmt.Printf("===== calling T2.M1, args=%s\n", args)
 }
+
 func (*T2) M2(args string) {
 	fmt.Printf("===== calling T2.M2, args=%s\n", args)
 }
+
 func (*T2) M3(t *testing.T, args int) {
 	assert.Equal(t, 10, args)
 	t.Logf("===== calling T2.M3, args=%d\n", args)
 }
+
 func (*T2) M4(args string) {
 	panic("should be aborted")
 }
+
 func (t *T2) M5(test *testing.T) {
 	test.Logf("===== calling T2.M5")
 }
@@ -55,7 +62,8 @@ type Context struct {
 	t *testing.T
 }
 
-func (c *Context) NewArg(idx int, in reflect.Type) (reflect.Value, error) {
+func (c *Context) Arg(recvType reflect.Type, idx int, in reflect.Type) (reflect.Value, error) {
+	fmt.Printf("Exec Struct: %s\n", recvType.String())
 	if idx == 0 && in.String() == "*testing.T" {
 		return reflect.ValueOf(c.t), nil
 	}

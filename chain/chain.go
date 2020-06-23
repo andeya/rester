@@ -14,8 +14,8 @@ type (
 	// NestedStruct nested structure carrying method chain
 	NestedStruct interface {
 		internal(internalType)
-		init(Args, []reflect.Value, []methodFunc)
-		newArg(idx int, in reflect.Type) (reflect.Value, error)
+		init(Args, *controller, []reflect.Value)
+		newArg(recvType reflect.Type, idx int, in reflect.Type) (reflect.Value, error)
 		exec() error
 		Next()
 		Abort(error)
@@ -23,22 +23,22 @@ type (
 	}
 	// Args create input argument
 	Args interface {
-		NewArg(idx int, in reflect.Type) (reflect.Value, error)
+		Arg(recvType reflect.Type, idx int, in reflect.Type) (reflect.Value, error)
 	}
 	// Func function to execute method chain
 	Func         func(Args) error
-	methodFunc   func(base *Base, recv reflect.Value)
+	methodFunc   func(*Base, reflect.Type, reflect.Value)
 	internalType struct{}
 	controller   struct {
 		recv       reflect.Type
 		methodName string
 		methods    []methodFunc
 		recvInfos  []recvInfo
+		recvTypes  []reflect.Type
 	}
 	recvInfo struct {
-		curOffset uintptr
-		curType   reflect.Type
-		ptrNum    int
+		curOffset   uintptr
+		curTypeElem reflect.Type
 	}
 )
 
@@ -75,16 +75,16 @@ func (c *controller) checkMethodName() error {
 func (c *controller) newChainFunc() Func {
 	return func(args Args) error {
 		topRecv, recvs := c.newRecvs()
-		topRecv.init(args, recvs, c.methods)
+		topRecv.init(args, c, recvs)
 		return topRecv.exec()
 	}
 }
 
-func (c *controller) makeMethods(curOffset uintptr, curRecv reflect.Type) {
-	if !c.checkNestedStruct(curRecv) {
+func (c *controller) makeMethods(curOffset uintptr, curRecvElem reflect.Type) {
+	if !c.checkNestedStruct(curRecvElem) {
 		return
 	}
-	curRecvPtr := ameda.ReferenceType(curRecv, 1)
+	curRecvPtr := ameda.ReferenceType(curRecvElem, 1)
 	for i := curRecvPtr.NumMethod() - 1; i >= 0; i-- {
 		m := curRecvPtr.Method(i)
 		if !c.checkMethod(m) {
@@ -95,23 +95,19 @@ func (c *controller) makeMethods(curOffset uintptr, curRecv reflect.Type) {
 		for i := 0; i < numIn; i++ {
 			inTypes[i] = m.Type.In(i)
 		}
-		ptrNum := 0
-		recvType := inTypes[0]
-		for {
-			if recvType.Kind() != reflect.Ptr {
-				break
-			}
-			recvType = recvType.Elem()
-			ptrNum++
+		ptrNum := 1
+		if _, ok := curRecvElem.MethodByName(m.Name); ok {
+			ptrNum = 0
 		}
-		c.insertRecvInfo(curOffset, curRecv, ptrNum)
+		c.insertRecvInfo(curOffset, curRecvElem, ameda.ReferenceType(curRecvElem, ptrNum))
+
 		fn := m.Func
-		c.insertMethod(func(base *Base, recv reflect.Value) {
+		c.insertMethod(func(base *Base, recvType reflect.Type, recvValue reflect.Value) {
 			inValues := make([]reflect.Value, numIn)
-			inValues[0] = recv
+			inValues[0] = recvValue
 			var err error
 			for i := 1; i < numIn; i++ {
-				inValues[i], err = base.newArg(i-1, inTypes[i]) // start at 0, skip receiver
+				inValues[i], err = base.newArg(recvType, i-1, inTypes[i]) // start at 0, skip receiver
 				if err != nil {
 					base.Abort(err)
 					return
@@ -121,31 +117,31 @@ func (c *controller) makeMethods(curOffset uintptr, curRecv reflect.Type) {
 		})
 		break // there can only be 1
 	}
-	for i := curRecv.NumField() - 1; i >= 0; i-- {
-		field := curRecv.Field(i)
+	for i := curRecvElem.NumField() - 1; i >= 0; i-- {
+		field := curRecvElem.Field(i)
 		if field.Anonymous {
 			c.makeMethods(field.Offset, field.Type)
 		}
 	}
 }
 
-func (c *controller) insertRecvInfo(curOffset uintptr, curType reflect.Type, ptrNum int) {
+func (c *controller) insertRecvInfo(curOffset uintptr, curTypeElem, curType reflect.Type) {
 	c.recvInfos = append(c.recvInfos, recvInfo{
-		curOffset: curOffset,
-		curType:   curType,
-		ptrNum:    ptrNum,
+		curOffset:   curOffset,
+		curTypeElem: curTypeElem,
 	})
+	c.recvTypes = append([]reflect.Type{curType}, c.recvTypes...) // reverse
 }
 
 func (c *controller) newRecvs() (NestedStruct, []reflect.Value) {
 	n := len(c.recvInfos)
 	recvs := make([]reflect.Value, n)
-	topRecv := reflect.New(c.recvInfos[0].curType)
+	topRecv := reflect.New(c.recvInfos[0].curTypeElem)
 	lastPtr := topRecv.Pointer()
 	for i, info := range c.recvInfos {
-		v := reflect.NewAt(info.curType, unsafe.Pointer(lastPtr+info.curOffset))
+		v := reflect.NewAt(info.curTypeElem, unsafe.Pointer(lastPtr+info.curOffset))
 		lastPtr = v.Pointer()
-		recvs[n-1-i] = ameda.ReferenceValue(v, info.ptrNum-1) // reverse
+		recvs[n-1-i] = v // reverse
 	}
 	return topRecv.Interface().(NestedStruct), recvs
 }

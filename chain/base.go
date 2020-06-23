@@ -8,11 +8,11 @@ import (
 const abortIndex int8 = math.MaxInt8 / 2
 
 type Base struct {
-	argsFactory Args
-	recvs       []reflect.Value
-	methods     []methodFunc
-	index       int8
-	abortError  error
+	args       Args
+	ctl        *controller
+	recvs      []reflect.Value
+	abortError error
+	index      int8
 }
 
 var _ NestedStruct = new(Base)
@@ -20,14 +20,14 @@ var baseType = reflect.TypeOf(new(Base)).Elem()
 
 func (Base) internal(internalType) {}
 
-func (b *Base) init(argsFactory Args, recvs []reflect.Value, methods []methodFunc) {
-	b.argsFactory = argsFactory
+func (b *Base) init(args Args, ctl *controller, recvs []reflect.Value) {
+	b.args = args
+	b.ctl = ctl
 	b.recvs = recvs
-	b.methods = methods
 }
 
-func (b *Base) newArg(idx int, in reflect.Type) (reflect.Value, error) {
-	return b.argsFactory.NewArg(idx, in)
+func (b *Base) newArg(recvType reflect.Type, idx int, in reflect.Type) (reflect.Value, error) {
+	return b.args.Arg(recvType, idx, in)
 }
 
 func (b *Base) exec() error {
@@ -39,8 +39,8 @@ func (b *Base) exec() error {
 // Next executes the pending methods in the chain inside the calling method.
 func (b *Base) Next() {
 	b.index++
-	for b.index < int8(len(b.methods)) {
-		b.methods[b.index](b, b.recvs[b.index])
+	for b.index < int8(len(b.ctl.methods)) {
+		b.ctl.methods[b.index](b, b.ctl.recvTypes[b.index], b.recvs[b.index])
 		b.index++
 	}
 }
