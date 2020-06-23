@@ -6,8 +6,10 @@ import (
 	"github.com/henrylee2cn/ameda"
 )
 
+const anyMethod = "Any"
+
 var httpMethodList = []string{
-	"Any", "GET", "POST", "PUT", "PATCH", "HEAD", "OPTIONS", "DELETE", "CONNECT", "TRACE",
+	"GET", "POST", "PUT", "PATCH", "HEAD", "OPTIONS", "DELETE", "CONNECT", "TRACE",
 	"CORS_GET", "CORS_POST", "CORS_PUT", "CORS_PATCH", "CORS_HEAD", "CORS_DELETE", "CORS_TRACE",
 }
 

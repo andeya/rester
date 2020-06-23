@@ -79,8 +79,13 @@ func (a argsRequestCtx) Arg(recvType reflect.Type, idx int, in reflect.Type) (re
 }
 
 func newFinder(httpMethod string) chain.FindFunc {
+	findMethod := chain.FindName(httpMethod)
+	findAny := chain.FindName(anyMethod)
 	return func(m reflect.Method) (ok bool, err error) {
-		ok, err = chain.FindName(httpMethod)(m)
+		ok, err = findMethod(m)
+		if !ok && err == nil {
+			ok, err = findAny(m)
+		}
 		if !ok || err != nil {
 			return
 		}
@@ -102,7 +107,16 @@ func NewHandlerFuncMap(c Controller) (map[string]fasthttp.RequestHandler, error)
 		case nil:
 			_, cors := splitMethod(httpMethod)
 			handlers[httpMethod] = func(ctx *fasthttp.RequestCtx) {
-				fn(argsRequestCtx{ctx})
+				err := fn(argsRequestCtx{ctx})
+				switch e := err.(type) {
+				case nil:
+				case *CodeMsg:
+					if e.Code >= 400 && e.Code < 600 {
+						renderJSON(ctx, e.Code, e)
+					}
+				default:
+					renderJSON(ctx, fasthttp.StatusInternalServerError, e)
+				}
 			}
 			if cors {
 				corsMethods[httpMethod] = struct{}{}
@@ -244,17 +258,20 @@ func (b BaseController) IsAjaxRequest() bool {
 	return ameda.UnsafeBytesToString(b.RequestCtx.Request.Header.Peek("X-Requested-With")) == "XMLHttpRequest"
 }
 
+func (b BaseController) renderJSON(code int, body interface{}) {
+	renderJSON(b.RequestCtx, code, body)
+}
+
 var useTestMode = true
 
 const jsonContentType = "application/json; charset=utf-8"
 
-func (b BaseController) renderJSON(code int, body interface{}) {
+func renderJSON(ctx *fasthttp.RequestCtx, code int, body interface{}) {
 	if useTestMode && goutil.IsGoTest() {
 		b, _ := json.MarshalIndent(body, "", "  ")
 		fmt.Printf("Respond: status_code=%d, json_body=%s\n", code, b)
 		return
 	}
-	ctx := b.RequestCtx
 	ctx.Response.Reset()
 	ctx.SetContentType(jsonContentType)
 	bodyBytes, err := json.Marshal(body)
