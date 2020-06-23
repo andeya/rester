@@ -23,6 +23,7 @@ type (
 	}
 	// Args create input argument
 	Args interface {
+		Init(NestedStruct) error
 		Arg(recvType reflect.Type, idx int, in reflect.Type) (reflect.Value, error)
 	}
 	// Func function to execute method chain
@@ -78,6 +79,10 @@ func (c *controller) checkMethodName() error {
 func (c *controller) newChainFunc() Func {
 	return func(args Args) error {
 		topRecv, recvs := c.newRecvs()
+		err := args.Init(topRecv)
+		if err != nil {
+			return err
+		}
 		topRecv.init(args, c, recvs)
 		return topRecv.exec()
 	}

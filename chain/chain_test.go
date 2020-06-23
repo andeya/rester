@@ -62,8 +62,12 @@ type Context struct {
 	t *testing.T
 }
 
+func (c *Context) Init(recv NestedStruct) error {
+	fmt.Printf("Exec Struct: %T\n", recv)
+	return nil
+}
+
 func (c *Context) Arg(recvType reflect.Type, idx int, in reflect.Type) (reflect.Value, error) {
-	fmt.Printf("Exec Struct: %s\n", recvType.String())
 	if idx == 0 && in.String() == "*testing.T" {
 		return reflect.ValueOf(c.t), nil
 	}
