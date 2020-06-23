@@ -16,7 +16,7 @@ type Base struct {
 }
 
 var _ NestedStruct = new(Base)
-var baseType = reflect.TypeOf(new(Base)).Elem()
+var baseTypePtr = reflect.TypeOf(new(Base))
 
 func (Base) internal(internalType) {}
 

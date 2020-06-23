@@ -21,6 +21,8 @@ type (
 		Abort(error)
 		Err() error
 	}
+	// FindFunc find the first matched method
+	FindFunc func(reflect.Method) (bool, error)
 	// Args create input argument
 	Args interface {
 		Init(NestedStruct) error
@@ -31,11 +33,11 @@ type (
 	methodFunc   func(*Base, reflect.Type, reflect.Value)
 	internalType struct{}
 	controller   struct {
-		recv       reflect.Type
-		methodName string
-		methods    []methodFunc
-		recvInfos  []recvInfo
-		recvTypes  []reflect.Type
+		recv      reflect.Type
+		find      FindFunc
+		methods   []methodFunc
+		recvInfos []recvInfo
+		recvTypes []reflect.Type
 	}
 	recvInfo struct {
 		curOffset   uintptr
@@ -43,35 +45,44 @@ type (
 	}
 )
 
+// FindName finds the first method encountered that matches the methodName
+func FindName(methodName string) FindFunc {
+	return func(m reflect.Method) (bool, error) {
+		if m.Name == methodName {
+			return true, nil
+		}
+		return false, nil
+	}
+}
+
 // ErrEmpty no method error
 var ErrEmpty = errors.New("no method chain found")
 
 // New creates a chained execution function.
 // NOTE:
 //  The method of specifying the name cannot have a return value
-func New(obj NestedStruct, methodName string) (Func, error) {
+func New(obj NestedStruct, find FindFunc) (Func, error) {
 	ctl := controller{
-		recv:       ameda.DereferenceImplementType(reflect.ValueOf(obj)),
-		methodName: methodName,
+		recv: ameda.DereferenceImplementType(reflect.ValueOf(obj)),
+		find: find,
 	}
-	err := ctl.checkMethodName()
+	err := ctl.makeMethods(0, ctl.recv)
 	if err != nil {
 		return nil, err
 	}
-	ctl.makeMethods(0, ctl.recv)
 	if len(ctl.methods) == 0 {
 		return nil, ErrEmpty
 	}
 	return ctl.newChainFunc(), nil
 }
 
-func (c *controller) checkMethodName() error {
-	if !goutil.IsExportedName(c.methodName) {
-		return fmt.Errorf("disallow unexported method name %s", c.methodName)
+func (c *controller) checkMethodName(methodName string) error {
+	if !goutil.IsExportedName(methodName) {
+		return fmt.Errorf("disallow unexported method name %s", methodName)
 	}
-	_, found := baseType.MethodByName(c.methodName)
+	_, found := baseTypePtr.MethodByName(methodName)
 	if found {
-		return fmt.Errorf("disallow internally reserved method name %s", c.methodName)
+		return fmt.Errorf("disallow internally reserved method name %s", methodName)
 	}
 	return nil
 }
@@ -88,14 +99,18 @@ func (c *controller) newChainFunc() Func {
 	}
 }
 
-func (c *controller) makeMethods(curOffset uintptr, curRecvElem reflect.Type) {
+func (c *controller) makeMethods(curOffset uintptr, curRecvElem reflect.Type) error {
 	if !c.checkNestedStruct(curRecvElem) {
-		return
+		return nil
 	}
 	curRecvPtr := ameda.ReferenceType(curRecvElem, 1)
 	for i := curRecvPtr.NumMethod() - 1; i >= 0; i-- {
 		m := curRecvPtr.Method(i)
-		if !c.checkMethod(m) {
+		ok, err := c.checkMethod(m)
+		if err != nil {
+			return err
+		}
+		if !ok {
 			continue
 		}
 		numIn := m.Type.NumIn()
@@ -128,9 +143,12 @@ func (c *controller) makeMethods(curOffset uintptr, curRecvElem reflect.Type) {
 	for i := curRecvElem.NumField() - 1; i >= 0; i-- {
 		field := curRecvElem.Field(i)
 		if field.Anonymous {
-			c.makeMethods(field.Offset, field.Type)
+			if err := c.makeMethods(field.Offset, field.Type); err != nil {
+				return err
+			}
 		}
 	}
+	return nil
 }
 
 func (c *controller) insertRecvInfo(curOffset uintptr, curTypeElem, curType reflect.Type) {
@@ -158,10 +176,19 @@ func (c *controller) insertMethod(m methodFunc) {
 	c.methods = append([]methodFunc{m}, c.methods...) // reverse
 }
 
-func (c *controller) checkMethod(m reflect.Method) bool {
-	return m.Name == c.methodName &&
-		!goutil.IsCompositionMethod(m) &&
-		m.Type.NumOut() == 0
+func (c *controller) checkMethod(m reflect.Method) (bool, error) {
+	ok, err := c.find(m)
+	if !ok || err != nil {
+		return false, err
+	}
+	err = c.checkMethodName(m.Name)
+	if err != nil {
+		return false, err
+	}
+	if m.Type.NumOut() > 0 {
+		return false, fmt.Errorf("%s.%s has out parameters", m.Type.In(0).String(), m.Name)
+	}
+	return !goutil.IsCompositionMethod(m), nil
 }
 
 func (c *controller) checkNestedStruct(curRecv reflect.Type) bool {

@@ -58,6 +58,10 @@ func (t *T2) M5(test *testing.T) {
 	test.Logf("===== calling T2.M5")
 }
 
+func (t *T2) M6(test *testing.T) error {
+	return nil
+}
+
 type Context struct {
 	t *testing.T
 }
@@ -81,41 +85,44 @@ func TestNew(t *testing.T) {
 	ctx := &Context{t}
 	//
 	for _, obj := range []NestedStruct{new(T1), new(T2)} {
-		fn, err := New(obj, "M1")
+		fn, err := New(obj, FindName("M1"))
 		assert.NoError(t, err)
 		err = fn(ctx)
 		assert.NoError(t, err)
 	}
 	//
-	_, err := New(new(T1), "Mn")
+	_, err := New(new(T1), FindName("Mn"))
 	assert.EqualError(t, err, "no method chain found")
 	//
-	fn, err := New(new(T2), "M2")
+	fn, err := New(new(T2), FindName("M2"))
 	assert.NoError(t, err)
 	err = fn(ctx)
 	assert.NoError(t, err)
 
 	//
-	fn, err = New(new(T2), "M3")
+	fn, err = New(new(T2), FindName("M3"))
 	assert.NoError(t, err)
 	err = fn(ctx)
 	assert.NoError(t, err)
 
 	//
-	fn, err = New(new(T1), "M4")
+	fn, err = New(new(T1), FindName("M4"))
 	assert.NoError(t, err)
 	err = fn(ctx)
 	assert.EqualError(t, err, "T1.M4 test abort")
 
 	//
-	fn, err = New(new(T2), "M4")
+	fn, err = New(new(T2), FindName("M4"))
 	assert.NoError(t, err)
 	err = fn(ctx)
 	assert.EqualError(t, err, "T1.M4 test abort")
 
 	//
-	fn, err = New(new(T2), "M5")
+	fn, err = New(new(T2), FindName("M5"))
 	assert.NoError(t, err)
 	err = fn(ctx)
 	assert.NoError(t, err)
+
+	_, err = New(new(T2), FindName("M6"))
+	assert.EqualError(t, err, "*chain.T2.M6 has out parameters")
 }
