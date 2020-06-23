@@ -23,6 +23,12 @@ func (t *T1) M4(args string) {
 	fmt.Printf("===== calling T1.M4, args=%s\n", args)
 	t.Abort(errors.New("T1.M4 test abort"))
 }
+func (t *T1) M5(test *testing.T, args string) {
+	test.Logf("===== calling T1.M5 start, args=%s", args)
+	t.Next()
+	assert.False(test, t.IsAborted())
+	test.Logf("===== calling T1.M5 end")
+}
 
 type T2 struct {
 	T1
@@ -40,6 +46,9 @@ func (*T2) M3(t *testing.T, args int) {
 }
 func (*T2) M4(args string) {
 	panic("should be aborted")
+}
+func (t *T2) M5(test *testing.T) {
+	test.Logf("===== calling T2.M5")
 }
 
 type Context struct {
@@ -91,4 +100,10 @@ func TestNew(t *testing.T) {
 	assert.NoError(t, err)
 	err = chain(ctx)
 	assert.EqualError(t, err, "T1.M4 test abort")
+
+	//
+	chain, err = New(new(T2), "M5")
+	assert.NoError(t, err)
+	err = chain(ctx)
+	assert.NoError(t, err)
 }
