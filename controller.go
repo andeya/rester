@@ -18,7 +18,7 @@ type (
 	Controller interface {
 		chain.NestedStruct
 		internal2(internalType)
-		setContext(*fasthttp.RequestCtx)
+		setContext(*RequestCtx)
 		AbortWithReturn()
 		BadRequest(code int, msg string)
 		Forbidden(code int, msg string)
@@ -31,7 +31,7 @@ type (
 	}
 	BaseController struct {
 		chain.Base
-		*fasthttp.RequestCtx
+		*RequestCtx
 	}
 	// CodeMsg response body when the http code is not 200
 	CodeMsg struct {
@@ -44,10 +44,10 @@ type (
 var _ Controller = new(BaseController)
 var binder = binding.New(nil).SetLooseZeroMode(true)
 
-// MustToHandlers converts the Controller to map {httpMethod:fasthttp.RequestHandler}
+// MustToHandlers converts the Controller to map {httpMethod:RequestHandler}
 // NOTE:
 //  panic when something goes wrong
-func MustToHandlers(c Controller) map[string]fasthttp.RequestHandler {
+func MustToHandlers(c Controller) map[string]RequestHandler {
 	handlers, err := ToHandlers(c)
 	if err != nil {
 		panic(err)
@@ -55,17 +55,17 @@ func MustToHandlers(c Controller) map[string]fasthttp.RequestHandler {
 	return handlers
 }
 
-// ToHandlers converts the Controller to map {httpMethod:fasthttp.RequestHandler}
+// ToHandlers converts the Controller to map {httpMethod:RequestHandler}
 // NOTE: Any means all http methods
-func ToHandlers(c Controller) (map[string]fasthttp.RequestHandler, error) {
-	handlers := make(map[string]fasthttp.RequestHandler)
+func ToHandlers(c Controller) (map[string]RequestHandler, error) {
+	handlers := make(map[string]RequestHandler)
 	corsMethods := make(map[string]struct{})
 	for _, httpMethod := range httpMethodList {
 		fn, err := chain.New(c, newFinder(httpMethod))
 		switch err {
 		case nil:
 			_, cors := splitMethod(httpMethod)
-			handlers[httpMethod] = func(ctx *fasthttp.RequestCtx) {
+			handlers[httpMethod] = func(ctx *RequestCtx) {
 				err := fn(argsRequestCtx{ctx})
 				switch e := err.(type) {
 				case nil:
@@ -97,7 +97,7 @@ func ToHandlers(c Controller) (map[string]fasthttp.RequestHandler, error) {
 		}
 		for method := range corsMethods {
 			fn := handlers[method]
-			handlers[method] = func(c *fasthttp.RequestCtx) {
+			handlers[method] = func(c *RequestCtx) {
 				corsFn(c)
 				fn(c)
 			}
@@ -106,13 +106,13 @@ func ToHandlers(c Controller) (map[string]fasthttp.RequestHandler, error) {
 	return handlers, nil
 }
 
-func newCorsFunc(corsMethods map[string]struct{}) fasthttp.RequestHandler {
+func newCorsFunc(corsMethods map[string]struct{}) RequestHandler {
 	var a []string
 	for m := range corsMethods {
 		a = append(a, m)
 	}
 	allowMethods := strings.Join(a, ", ")
-	return func(c *fasthttp.RequestCtx) {
+	return func(c *RequestCtx) {
 		c.Request.Header.SetBytesV("Access-Control-Allow-Origin", c.Request.Header.Peek("Origin"))
 		c.Request.Header.Set("Access-Control-Allow-Credentials", "true")
 		c.Request.Header.Set("Access-Control-Allow-Methods", allowMethods)
@@ -127,7 +127,7 @@ func newCorsFunc(corsMethods map[string]struct{}) fasthttp.RequestHandler {
 
 func (*BaseController) internal2(internalType) {}
 
-func (b *BaseController) setContext(c *fasthttp.RequestCtx) {
+func (b *BaseController) setContext(c *RequestCtx) {
 	b.RequestCtx = c
 }
 
@@ -225,7 +225,7 @@ var useTestMode = true
 
 const jsonContentType = "application/json; charset=utf-8"
 
-func renderJSON(ctx *fasthttp.RequestCtx, code int, body interface{}) {
+func renderJSON(ctx *RequestCtx, code int, body interface{}) {
 	if useTestMode && goutil.IsGoTest() {
 		b, _ := json.MarshalIndent(body, "", "  ")
 		fmt.Printf("Respond: status_code=%d, json_body=%s\n", code, b)
@@ -257,7 +257,7 @@ func (c *CodeMsg) Error() string {
 }
 
 type argsRequestCtx struct {
-	*fasthttp.RequestCtx
+	*RequestCtx
 }
 
 func (a argsRequestCtx) Init(recv chain.NestedStruct) error {

@@ -40,6 +40,18 @@ func (r *Router) Control(path string, controller Controller) {
 	r.controllers[path] = controller
 }
 
+// ServeFiles serves files from the given file system root.
+// The path must end with "/*filepath", files are then served from the local
+// path /defined/root/dir/*filepath.
+// For example if root is "/etc" and *filepath is "passwd", the local file
+// "/etc/passwd" would be served.
+// Internally a http.FileServer is used, therefore http.NotFound is used instead
+// of the Router's NotFound handler.
+//     router.ServeFiles("/src/*filepath", "/var/www")
+func (r *Router) ServeFiles(path string, rootPath string) {
+	r.router.ServeFiles(path, rootPath)
+}
+
 // Path returns router path of the controller
 // NOTE:
 //  Must be called after routing
