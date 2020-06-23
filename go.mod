@@ -3,6 +3,7 @@ module github.com/henrylee2cn/rester
 go 1.14
 
 require (
+	github.com/buaazp/fasthttprouter v0.1.2-0.20190109152524-979d6e516ec3
 	github.com/bytedance/go-tagexpr v2.5.0+incompatible
 	github.com/bytedance/json v0.0.0-20190516032711-0d89175f1949
 	github.com/davecgh/go-spew v1.1.1 // indirect
