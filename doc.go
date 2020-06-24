@@ -1,5 +1,5 @@
 /*
-Package Faygo is a fast and concise RESTful web framework based on [fasthttp](https://github.com/valyala/fasthttp).
+Package rester is a fast and concise RESTful web framework based on [fasthttp](https://github.com/valyala/fasthttp).
 
 Copyright 2020 HenryLee. All Rights Reserved.
 
