@@ -33,7 +33,6 @@ type (
 		chain.NestedStruct
 		internal2(internalType)
 		setContext(*RequestCtx)
-		AbortWithReturn()
 		BadRequest(code int, msg string)
 		Forbidden(code int, msg string)
 		InternalServerError(code int, msg string, err ...error)
@@ -205,21 +204,6 @@ func (b BaseController) Redirect(code int, location string) {
 
 func (b BaseController) OK(value interface{}) {
 	b.renderJSON(fasthttp.StatusOK, value)
-}
-
-type returnFlag struct{}
-
-func (b BaseController) AbortWithReturn() {
-	b.Abort(nil)
-	panic(returnFlag{})
-}
-
-func (b BaseController) Err() error {
-	err := b.Base.Err()
-	if err == nil {
-		err = b.RequestCtx.Err()
-	}
-	return err
 }
 
 // QueryAllArray gets ["1","2","3","4","5"] from a=1,2,3&a=4&a=5

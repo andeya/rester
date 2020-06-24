@@ -47,7 +47,7 @@ func (b *Base) newArg(recvType reflect.Type, idx int, in reflect.Type) (reflect.
 func (b *Base) exec() error {
 	b.index = -1
 	b.Next()
-	return b.Err()
+	return b.abortError
 }
 
 // Next executes the pending methods in the chain inside the calling method.
@@ -70,9 +70,4 @@ func (b *Base) Abort(err error) {
 // IsAborted returns true if the current execution chain was aborted.
 func (b *Base) IsAborted() bool {
 	return b.index >= abortIndex
-}
-
-// Err returns the execution error.
-func (b *Base) Err() error {
-	return b.abortError
 }

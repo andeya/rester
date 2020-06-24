@@ -35,7 +35,7 @@ type (
 		exec() error
 		Next()
 		Abort(error)
-		Err() error
+		IsAborted() bool
 	}
 	// FindFunc find the first matched method
 	FindFunc func(reflect.Method) (bool, error)
