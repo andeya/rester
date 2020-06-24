@@ -15,6 +15,7 @@
 package rester
 
 import (
+	"fmt"
 	"reflect"
 
 	"github.com/buaazp/fasthttprouter"
@@ -44,11 +45,12 @@ func (r *Router) Control(path string, controller Controller) {
 	}
 	handlerMap := MustToHandlers(controller)
 	controllerName := getControllerName(controller)
-	for _, method := range httpMethodList {
-		handler := handlerMap[method]
+	for _, httpMethod := range httpMethodList {
+		handler := handlerMap[httpMethod]
 		if handler != nil {
-			r.router.Handle(method, path, handler)
+			r.router.Handle(httpMethod, path, handler)
 			r.controllerNames[controllerName] = path
+			r.println(httpMethod, path, controllerName)
 		}
 	}
 	r.controllers[path] = controller
@@ -64,6 +66,7 @@ func (r *Router) Control(path string, controller Controller) {
 //     router.ServeFiles("/src/*filepath", "/var/www")
 func (r *Router) ServeFiles(path string, rootPath string) {
 	r.router.ServeFiles(path, rootPath)
+	r.println("GET", path, "fasthttp.FSHandler")
 }
 
 // Path returns router path of the controller
@@ -71,6 +74,13 @@ func (r *Router) ServeFiles(path string, rootPath string) {
 //  Must be called after routing
 func (r *Router) Path(controller Controller) string {
 	return r.controllerNames[getControllerName(controller)]
+}
+
+func (r *Router) println(httpMethod, path, controllerName string) {
+	fmt.Printf(
+		"[RESTER] %-7s %-25s --> %s\n",
+		httpMethod, path, controllerName,
+	)
 }
 
 func getControllerName(controller Controller) string {
