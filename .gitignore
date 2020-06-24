@@ -20,3 +20,5 @@
 /.vscode
 *.json
 go.sum
+*.zip
+*.rar
