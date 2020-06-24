@@ -37,7 +37,8 @@ type (
 		BadRequest(code int, msg string)
 		Forbidden(code int, msg string)
 		InternalServerError(code int, msg string, err ...error)
-		NotFound(code int, msg string)
+		NotFound(...string)
+		NotModified()
 		OK(value interface{})
 		QueryAllArray(key string) []string
 		Redirect(code int, location string)
@@ -80,7 +81,8 @@ func ToHandlers(c Controller) (map[string]RequestHandler, error) {
 		fn, err := chain.New(c, newFinder(httpMethod))
 		switch err {
 		case nil:
-			_, cors := splitMethod(httpMethod)
+			var cors bool
+			httpMethod, cors = splitMethod(httpMethod)
 			handlers[httpMethod] = func(ctx *RequestCtx) {
 				err := fn(argsRequestCtx{ctx})
 				switch e := err.(type) {
@@ -129,12 +131,11 @@ func newCorsFunc(corsMethods map[string]struct{}) RequestHandler {
 	}
 	allowMethods := strings.Join(a, ", ")
 	return func(c *RequestCtx) {
-		c.Request.Header.SetBytesV("Access-Control-Allow-Origin", c.Request.Header.Peek("Origin"))
-		c.Request.Header.Set("Access-Control-Allow-Credentials", "true")
-		c.Request.Header.Set("Access-Control-Allow-Methods", allowMethods)
-		c.Request.Header.SetBytesV("Access-Control-Allow-Headers", c.Request.Header.Peek("Access-Control-Request-Headers"))
+		c.Response.Header.SetBytesV("Access-Control-Allow-Origin", c.Request.Header.Peek("Origin"))
+		c.Response.Header.Set("Access-Control-Allow-Credentials", "true")
+		c.Response.Header.Set("Access-Control-Allow-Methods", allowMethods)
+		c.Response.Header.SetBytesV("Access-Control-Allow-Headers", c.Request.Header.Peek("Access-Control-Request-Headers"))
 		if c.Request.Header.IsOptions() {
-			c.Response.Reset()
 			c.SetStatusCode(fasthttp.StatusNoContent)
 			c.SetBodyString("")
 		}
@@ -166,11 +167,18 @@ func (b BaseController) InternalServerError(code int, msg string, err ...error) 
 	b.Abort(nil)
 }
 
-func (b BaseController) NotFound(code int, msg string) {
-	b.renderJSON(fasthttp.StatusNotFound, CodeMsg{
-		Code: code,
-		Msg:  msg,
-	})
+func (b BaseController) NotFound(msg ...string) {
+	msg = append(msg, "404 Page not found")
+	ctx := b.RequestCtx
+	ctx.Response.Reset()
+	ctx.SetStatusCode(fasthttp.StatusNotFound)
+	ctx.SetBodyString(msg[0])
+	b.Abort(nil)
+}
+
+// NotModified resets response and sets '304 Not Modified' response status code.
+func (b BaseController) NotModified() {
+	b.RequestCtx.NotModified()
 	b.Abort(nil)
 }
 
@@ -247,7 +255,6 @@ func renderJSON(ctx *RequestCtx, code int, body interface{}) {
 		fmt.Printf("Respond: status_code=%d, json_body=%s\n", code, b)
 		return
 	}
-	ctx.Response.Reset()
 	ctx.SetContentType(jsonContentType)
 	bodyBytes, err := json.Marshal(body)
 	if err != nil {
