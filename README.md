@@ -51,6 +51,8 @@ func main() {
 }
 ```
 
+[More examples](https://github.com/henrylee2cn/rester/tree/master/example)
+
 ## Binding
 
 [binding doc](https://github.com/henrylee2cn/rester/blob/master/binding/README.md)
