@@ -350,6 +350,7 @@ type Engine struct {
 // - RedirectFixedPath:      false
 // - HandleMethodNotAllowed: false
 // - HandleOPTIONS:          true
+// - Name:                   rester
 func New() *Engine {
 	engine := &Engine{
 		RedirectTrailingSlash:  true,
@@ -362,6 +363,11 @@ func New() *Engine {
 
 func (engine *Engine) initOnce() {
 	engine.once.Do(func() {
+		// default
+		if engine.Name == "" {
+			engine.Name = "rester"
+		}
+
 		// router
 		engine.Router.router.RedirectTrailingSlash = engine.RedirectTrailingSlash
 		engine.Router.router.RedirectFixedPath = engine.RedirectFixedPath
