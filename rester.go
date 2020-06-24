@@ -208,10 +208,6 @@ type Engine struct {
 	// By default unlimited number of requests may be served per connection.
 	MaxRequestsPerConn int
 
-	// MaxKeepaliveDuration is a no-op and only left here for backwards compatibility.
-	// Deprecated: Use IdleTimeout instead.
-	MaxKeepaliveDuration time.Duration
-
 	// Whether to enable tcp keep-alive connections.
 	//
 	// Whether the operating system should send tcp keep-alive messages on the tcp connection.
@@ -352,7 +348,44 @@ func New() *Engine {
 
 func (engine *Engine) initOnce() {
 	engine.once.Do(func() {
+		// router
+		engine.Router.router.RedirectTrailingSlash = engine.RedirectTrailingSlash
+		engine.Router.router.RedirectFixedPath = engine.RedirectFixedPath
+		engine.Router.router.HandleMethodNotAllowed = engine.HandleMethodNotAllowed
+		engine.Router.router.HandleOPTIONS = engine.HandleOPTIONS
+		engine.Router.router.NotFound = engine.NotFound
+		engine.Router.router.MethodNotAllowed = engine.MethodNotAllowed
+		engine.Router.router.PanicHandler = engine.PanicHandler
+		// server
 		engine.server.Handler = engine.Router.router.Handler
+		engine.server.ErrorHandler = engine.ErrorHandler
+		engine.server.HeaderReceived = engine.HeaderReceived
+		engine.server.ContinueHandler = engine.ContinueHandler
+		engine.server.Name = engine.Name
+		engine.server.Concurrency = engine.Concurrency
+		engine.server.DisableKeepalive = engine.DisableKeepalive
+		engine.server.ReadBufferSize = engine.ReadBufferSize
+		engine.server.WriteBufferSize = engine.WriteBufferSize
+		engine.server.ReadTimeout = engine.ReadTimeout
+		engine.server.WriteTimeout = engine.WriteTimeout
+		engine.server.IdleTimeout = engine.IdleTimeout
+		engine.server.MaxConnsPerIP = engine.MaxConnsPerIP
+		engine.server.MaxRequestsPerConn = engine.MaxRequestsPerConn
+		engine.server.TCPKeepalive = engine.TCPKeepalive
+		engine.server.TCPKeepalivePeriod = engine.TCPKeepalivePeriod
+		engine.server.MaxRequestBodySize = engine.MaxRequestBodySize
+		engine.server.ReduceMemoryUsage = engine.ReduceMemoryUsage
+		engine.server.GetOnly = engine.GetOnly
+		engine.server.DisablePreParseMultipartForm = engine.DisablePreParseMultipartForm
+		engine.server.LogAllErrors = engine.LogAllErrors
+		engine.server.DisableHeaderNamesNormalizing = engine.DisableHeaderNamesNormalizing
+		engine.server.SleepWhenConcurrencyLimitsExceeded = engine.SleepWhenConcurrencyLimitsExceeded
+		engine.server.NoDefaultServerHeader = engine.NoDefaultServerHeader
+		engine.server.NoDefaultDate = engine.NoDefaultDate
+		engine.server.NoDefaultContentType = engine.NoDefaultContentType
+		engine.server.ConnState = engine.ConnState
+		engine.server.Logger = engine.Logger
+		engine.server.KeepHijackedConns = engine.KeepHijackedConns
 	})
 }
 
