@@ -43,7 +43,7 @@ type (
 		Redirect(code int, location string)
 		Unauthorized(code int, msg string)
 	}
-	BaseController struct {
+	BaseCtl struct {
 		chain.Base
 		*RequestCtx
 	}
@@ -57,7 +57,7 @@ type (
 	internalType struct{}
 )
 
-var _ Controller = new(BaseController)
+var _ Controller = new(BaseCtl)
 var binder = binding.New(nil).SetLooseZeroMode(true)
 
 // MustToHandlers converts the Controller to map {httpMethod:RequestHandler}
@@ -141,13 +141,13 @@ func newCorsFunc(corsMethods map[string]struct{}) RequestHandler {
 	}
 }
 
-func (*BaseController) internal2(internalType) {}
+func (*BaseCtl) internal2(internalType) {}
 
-func (b *BaseController) setContext(c *RequestCtx) {
+func (b *BaseCtl) setContext(c *RequestCtx) {
 	b.RequestCtx = c
 }
 
-func (b BaseController) BadRequest(code int, msg string) {
+func (b BaseCtl) BadRequest(code int, msg string) {
 	b.renderJSON(fasthttp.StatusBadRequest, CodeMsg{
 		Code: code,
 		Msg:  msg,
@@ -155,7 +155,7 @@ func (b BaseController) BadRequest(code int, msg string) {
 	b.Abort(nil)
 }
 
-func (b BaseController) InternalServerError(code int, msg string, err ...error) {
+func (b BaseCtl) InternalServerError(code int, msg string, err ...error) {
 	if len(err) > 0 && err[0] != nil {
 		b.RequestCtx.Logger().Printf("msg=%s, error=%s", msg, err[0].Error())
 	}
@@ -166,7 +166,7 @@ func (b BaseController) InternalServerError(code int, msg string, err ...error) 
 	b.Abort(nil)
 }
 
-func (b BaseController) NotFound(msg ...string) {
+func (b BaseCtl) NotFound(msg ...string) {
 	msg = append(msg, "404 Page not found")
 	ctx := b.RequestCtx
 	ctx.Response.Reset()
@@ -176,12 +176,12 @@ func (b BaseController) NotFound(msg ...string) {
 }
 
 // NotModified resets response and sets '304 Not Modified' response status code.
-func (b BaseController) NotModified() {
+func (b BaseCtl) NotModified() {
 	b.RequestCtx.NotModified()
 	b.Abort(nil)
 }
 
-func (b BaseController) Unauthorized(code int, msg string) {
+func (b BaseCtl) Unauthorized(code int, msg string) {
 	b.renderJSON(fasthttp.StatusUnauthorized, CodeMsg{
 		Code: code,
 		Msg:  msg,
@@ -189,7 +189,7 @@ func (b BaseController) Unauthorized(code int, msg string) {
 	b.Abort(nil)
 }
 
-func (b BaseController) Forbidden(code int, msg string) {
+func (b BaseCtl) Forbidden(code int, msg string) {
 	b.renderJSON(fasthttp.StatusForbidden, CodeMsg{
 		Code: code,
 		Msg:  msg,
@@ -197,17 +197,17 @@ func (b BaseController) Forbidden(code int, msg string) {
 	b.Abort(nil)
 }
 
-func (b BaseController) Redirect(code int, location string) {
+func (b BaseCtl) Redirect(code int, location string) {
 	b.RequestCtx.Redirect(location, code)
 	b.Abort(nil)
 }
 
-func (b BaseController) OK(value interface{}) {
+func (b BaseCtl) OK(value interface{}) {
 	b.renderJSON(fasthttp.StatusOK, value)
 }
 
 // QueryAllArray gets ["1","2","3","4","5"] from a=1,2,3&a=4&a=5
-func (b BaseController) QueryAllArray(key string) []string {
+func (b BaseCtl) QueryAllArray(key string) []string {
 	if b.RequestCtx == nil {
 		return nil
 	}
@@ -221,11 +221,11 @@ func (b BaseController) QueryAllArray(key string) []string {
 }
 
 // IsAjaxRequest front-end setup required
-func (b BaseController) IsAjaxRequest() bool {
+func (b BaseCtl) IsAjaxRequest() bool {
 	return ameda.UnsafeBytesToString(b.RequestCtx.Request.Header.Peek("X-Requested-With")) == "XMLHttpRequest"
 }
 
-func (b BaseController) renderJSON(code int, body interface{}) {
+func (b BaseCtl) renderJSON(code int, body interface{}) {
 	renderJSON(b.RequestCtx, code, body)
 }
 

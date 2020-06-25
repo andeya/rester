@@ -3,7 +3,7 @@ package main
 import "github.com/henrylee2cn/rester"
 
 type Echo1Ctl struct {
-	rester.BaseController
+	rester.BaseCtl
 }
 
 func (ctl *Echo1Ctl) GET(args struct {

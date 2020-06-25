@@ -3,7 +3,7 @@ package main
 import "github.com/henrylee2cn/rester"
 
 type CorsCtl struct {
-	rester.BaseController
+	rester.BaseCtl
 }
 
 func (ctl *CorsCtl) CORS_GET() {
