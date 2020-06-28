@@ -23,7 +23,7 @@ const abortIndex int8 = math.MaxInt8 / 2
 
 type Base struct {
 	args       Args
-	ctl        *controller
+	ctl        *chainFactory
 	recvs      []reflect.Value
 	abortError error
 	index      int8
@@ -34,7 +34,7 @@ var baseTypePtr = reflect.TypeOf(new(Base))
 
 func (Base) internal(internalType) {}
 
-func (b *Base) init(args Args, ctl *controller, recvs []reflect.Value) {
+func (b *Base) init(args Args, ctl *chainFactory, recvs []reflect.Value) {
 	b.args = args
 	b.ctl = ctl
 	b.recvs = recvs

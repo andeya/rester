@@ -30,7 +30,7 @@ type (
 	// NestedStruct nested structure carrying method chain
 	NestedStruct interface {
 		internal(internalType)
-		init(Args, *controller, []reflect.Value)
+		init(Args, *chainFactory, []reflect.Value)
 		newArg(recvType reflect.Type, idx int, in reflect.Type) (reflect.Value, error)
 		exec() error
 		Next()
@@ -50,7 +50,7 @@ type (
 	Func         func(Args) error
 	methodFunc   func(*Base, reflect.Type, reflect.Value)
 	internalType struct{}
-	controller   struct {
+	chainFactory struct {
 		recv        reflect.Type
 		find        FindFunc
 		methods     []methodFunc
@@ -84,7 +84,7 @@ var ErrEmpty = errors.New("no method chain found")
 // NOTE:
 //  The method of specifying the name cannot have a return value
 func New(obj NestedStruct, find FindFunc) (Func, error) {
-	ctl := controller{
+	ctl := chainFactory{
 		recv: ameda.DereferenceImplementType(reflect.ValueOf(obj)),
 		find: find,
 	}
@@ -110,7 +110,7 @@ func NewFrom(factory FactoryFunc, find FindFunc) (Func, error) {
 		recvPtrDiff--
 	}
 	recvPtrDiff++
-	ctl := controller{
+	ctl := chainFactory{
 		recv:        t,
 		find:        find,
 		factory:     factory,
@@ -126,7 +126,7 @@ func NewFrom(factory FactoryFunc, find FindFunc) (Func, error) {
 	return ctl.newChainFunc(), nil
 }
 
-func (c *controller) checkMethodName(methodName string) error {
+func (c *chainFactory) checkMethodName(methodName string) error {
 	if !goutil.IsExportedName(methodName) {
 		return fmt.Errorf("disallow unexported method name %q", methodName)
 	}
@@ -137,7 +137,7 @@ func (c *controller) checkMethodName(methodName string) error {
 	return nil
 }
 
-func (c *controller) newChainFunc() Func {
+func (c *chainFactory) newChainFunc() Func {
 	return func(args Args) error {
 		topRecv, recvs := c.newRecvs()
 		err := args.Init(topRecv)
@@ -149,7 +149,7 @@ func (c *controller) newChainFunc() Func {
 	}
 }
 
-func (c *controller) makeMethods(level int, curOffset uintptr, curRecvElem reflect.Type) error {
+func (c *chainFactory) makeMethods(level int, curOffset uintptr, curRecvElem reflect.Type) error {
 	if !c.checkNestedStruct(curRecvElem) {
 		return nil
 	}
@@ -201,7 +201,7 @@ func (c *controller) makeMethods(level int, curOffset uintptr, curRecvElem refle
 	return nil
 }
 
-func (c *controller) insertRecvInfo(curOffset uintptr, curTypeElem, curType reflect.Type) {
+func (c *chainFactory) insertRecvInfo(curOffset uintptr, curTypeElem, curType reflect.Type) {
 	c.recvInfos = append(c.recvInfos, recvInfo{
 		curOffset:   curOffset,
 		curTypeElem: curTypeElem,
@@ -209,7 +209,7 @@ func (c *controller) insertRecvInfo(curOffset uintptr, curTypeElem, curType refl
 	c.recvTypes = append([]reflect.Type{curType}, c.recvTypes...) // reverse
 }
 
-func (c *controller) newRecvs() (NestedStruct, []reflect.Value) {
+func (c *chainFactory) newRecvs() (NestedStruct, []reflect.Value) {
 	var topRecvObj NestedStruct
 	var topRecvValue reflect.Value
 	if c.factory == nil {
@@ -230,11 +230,11 @@ func (c *controller) newRecvs() (NestedStruct, []reflect.Value) {
 	return topRecvObj, recvs
 }
 
-func (c *controller) insertMethod(m methodFunc) {
+func (c *chainFactory) insertMethod(m methodFunc) {
 	c.methods = append([]methodFunc{m}, c.methods...) // reverse
 }
 
-func (c *controller) checkMethods(level int, methods []reflect.Method) (*reflect.Method, error) {
+func (c *chainFactory) checkMethods(level int, methods []reflect.Method) (*reflect.Method, error) {
 	m, err := c.find(level, methods)
 	if err != nil || m == nil {
 		return m, err
@@ -252,7 +252,7 @@ func (c *controller) checkMethods(level int, methods []reflect.Method) (*reflect
 	return m, nil
 }
 
-func (c *controller) checkNestedStruct(curRecv reflect.Type) bool {
+func (c *chainFactory) checkNestedStruct(curRecv reflect.Type) bool {
 	if curRecv.Kind() != reflect.Struct {
 		return false
 	}
