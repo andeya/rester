@@ -65,16 +65,8 @@ var binder = binding.New(nil).SetLooseZeroMode(true)
 //  panic when something goes wrong
 func MustNewHandlers(factory func() Controller) map[string]RequestHandler {
 	handlers, err := NewHandlers(factory)
-	if err != nil {
-		panic(err)
-	}
+	checkNewChainErr(err)
 	return handlers
-}
-
-// NewHandlers creates map {httpMethod:RequestHandler} from the Controller factory.
-// NOTE: Any means all http methods
-func NewHandlers(factory func() Controller) (map[string]RequestHandler, error) {
-	return newHandlers(nil, factory)
 }
 
 // MustToHandlers converts the Controller to map {httpMethod:RequestHandler}.
@@ -82,10 +74,20 @@ func NewHandlers(factory func() Controller) (map[string]RequestHandler, error) {
 //  panic when something goes wrong
 func MustToHandlers(c Controller) map[string]RequestHandler {
 	handlers, err := ToHandlers(c)
-	if err != nil {
+	checkNewChainErr(err)
+	return handlers
+}
+
+func checkNewChainErr(err error) {
+	if err != nil && err != chain.ErrEmpty {
 		panic(err)
 	}
-	return handlers
+}
+
+// NewHandlers creates map {httpMethod:RequestHandler} from the Controller factory.
+// NOTE: Any means all http methods
+func NewHandlers(factory func() Controller) (map[string]RequestHandler, error) {
+	return newHandlers(nil, factory)
 }
 
 // ToHandlers converts the Controller to map {httpMethod:RequestHandler}.
@@ -322,17 +324,20 @@ func (a argsRequestCtx) Arg(recvType reflect.Type, idx int, in reflect.Type) (re
 func newFinder(httpMethod string) chain.FindFunc {
 	findMethod := chain.FindName(httpMethod)
 	findAny := chain.FindName(anyMethod)
-	return func(m reflect.Method) (ok bool, err error) {
-		ok, err = findMethod(m)
-		if !ok && err == nil {
-			ok, err = findAny(m)
+	return func(level int, methods []reflect.Method) (m *reflect.Method, err error) {
+		m, err = findMethod(level, methods)
+		if m == nil && err == nil {
+			if level == 0 {
+				return nil, chain.ErrEmpty
+			}
+			m, err = findAny(level, methods)
 		}
-		if !ok || err != nil {
+		if m == nil || err != nil {
 			return
 		}
 		if m.Type.NumIn() > 2 {
-			return false, fmt.Errorf("%s.%s has more than two input parameters", m.Type.In(0).String(), m.Name)
+			return nil, fmt.Errorf("%s.%s has more than two input parameters", m.Type.In(0).String(), m.Name)
 		}
-		return true, nil
+		return m, nil
 	}
 }

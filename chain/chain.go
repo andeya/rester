@@ -38,7 +38,7 @@ type (
 		IsAborted() bool
 	}
 	// FindFunc find the first matched method
-	FindFunc func(reflect.Method) (bool, error)
+	FindFunc func(level int, methods []reflect.Method) (*reflect.Method, error)
 	// FactoryFunc creates a new NestedStruct object
 	FactoryFunc func() NestedStruct
 	// Args create input argument
@@ -67,11 +67,13 @@ type (
 
 // FindName finds the first method encountered that matches the methodName
 func FindName(methodName string) FindFunc {
-	return func(m reflect.Method) (bool, error) {
-		if m.Name == methodName {
-			return true, nil
+	return func(_ int, methods []reflect.Method) (*reflect.Method, error) {
+		for _, m := range methods {
+			if m.Name == methodName {
+				return &m, nil
+			}
 		}
-		return false, nil
+		return nil, nil
 	}
 }
 
@@ -86,7 +88,7 @@ func New(obj NestedStruct, find FindFunc) (Func, error) {
 		recv: ameda.DereferenceImplementType(reflect.ValueOf(obj)),
 		find: find,
 	}
-	err := ctl.makeMethods(0, ctl.recv)
+	err := ctl.makeMethods(0, 0, ctl.recv)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +116,7 @@ func NewFrom(factory FactoryFunc, find FindFunc) (Func, error) {
 		factory:     factory,
 		recvPtrDiff: recvPtrDiff,
 	}
-	err := ctl.makeMethods(0, ctl.recv)
+	err := ctl.makeMethods(0, 0, ctl.recv)
 	if err != nil {
 		return nil, err
 	}
@@ -126,11 +128,11 @@ func NewFrom(factory FactoryFunc, find FindFunc) (Func, error) {
 
 func (c *controller) checkMethodName(methodName string) error {
 	if !goutil.IsExportedName(methodName) {
-		return fmt.Errorf("disallow unexported method name %s", methodName)
+		return fmt.Errorf("disallow unexported method name %q", methodName)
 	}
 	_, found := baseTypePtr.MethodByName(methodName)
 	if found {
-		return fmt.Errorf("disallow internally reserved method name %s", methodName)
+		return fmt.Errorf("disallow internally reserved method name %q", methodName)
 	}
 	return nil
 }
@@ -147,20 +149,21 @@ func (c *controller) newChainFunc() Func {
 	}
 }
 
-func (c *controller) makeMethods(curOffset uintptr, curRecvElem reflect.Type) error {
+func (c *controller) makeMethods(level int, curOffset uintptr, curRecvElem reflect.Type) error {
 	if !c.checkNestedStruct(curRecvElem) {
 		return nil
 	}
 	curRecvPtr := ameda.ReferenceType(curRecvElem, 1)
-	for i := curRecvPtr.NumMethod() - 1; i >= 0; i-- {
-		m := curRecvPtr.Method(i)
-		ok, err := c.checkMethod(m)
-		if err != nil {
-			return err
-		}
-		if !ok {
-			continue
-		}
+	numMethod := curRecvPtr.NumMethod()
+	methods := make([]reflect.Method, numMethod)
+	for i := numMethod - 1; i >= 0; i-- {
+		methods[i] = curRecvPtr.Method(i)
+	}
+	m, err := c.checkMethods(level, methods)
+	if err != nil {
+		return err
+	}
+	if m != nil {
 		numIn := m.Type.NumIn()
 		inTypes := make([]reflect.Type, numIn)
 		for i := 0; i < numIn; i++ {
@@ -186,12 +189,11 @@ func (c *controller) makeMethods(curOffset uintptr, curRecvElem reflect.Type) er
 			}
 			fn.Call(inValues)
 		})
-		break // there can only be 1
 	}
 	for i := curRecvElem.NumField() - 1; i >= 0; i-- {
 		field := curRecvElem.Field(i)
 		if field.Anonymous {
-			if err := c.makeMethods(field.Offset, field.Type); err != nil {
+			if err := c.makeMethods(level+1, field.Offset, field.Type); err != nil {
 				return err
 			}
 		}
@@ -232,19 +234,22 @@ func (c *controller) insertMethod(m methodFunc) {
 	c.methods = append([]methodFunc{m}, c.methods...) // reverse
 }
 
-func (c *controller) checkMethod(m reflect.Method) (bool, error) {
-	ok, err := c.find(m)
-	if !ok || err != nil {
-		return false, err
+func (c *controller) checkMethods(level int, methods []reflect.Method) (*reflect.Method, error) {
+	m, err := c.find(level, methods)
+	if err != nil || m == nil {
+		return m, err
 	}
 	err = c.checkMethodName(m.Name)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	if m.Type.NumOut() > 0 {
-		return false, fmt.Errorf("%s.%s has out parameters", m.Type.In(0).String(), m.Name)
+		return nil, fmt.Errorf("%s.%s has out parameters", m.Type.In(0).String(), m.Name)
 	}
-	return !goutil.IsCompositionMethod(m), nil
+	if goutil.IsCompositionMethod(*m) {
+		return nil, nil
+	}
+	return m, nil
 }
 
 func (c *controller) checkNestedStruct(curRecv reflect.Type) bool {
