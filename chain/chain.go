@@ -155,9 +155,12 @@ func (c *chainFactory) makeMethods(level int, curOffset uintptr, curRecvElem ref
 	}
 	curRecvPtr := ameda.ReferenceType(curRecvElem, 1)
 	numMethod := curRecvPtr.NumMethod()
-	methods := make([]reflect.Method, numMethod)
-	for i := numMethod - 1; i >= 0; i-- {
-		methods[i] = curRecvPtr.Method(i)
+	methods := make([]reflect.Method, 0, numMethod)
+	for i := 0; i < numMethod; i++ {
+		m := curRecvPtr.Method(i)
+		if !goutil.IsCompositionMethod(m) {
+			methods = append(methods, m)
+		}
 	}
 	m, err := c.checkMethods(level, methods)
 	if err != nil {
@@ -245,9 +248,6 @@ func (c *chainFactory) checkMethods(level int, methods []reflect.Method) (*refle
 	}
 	if m.Type.NumOut() > 0 {
 		return nil, fmt.Errorf("%s.%s has out parameters", m.Type.In(0).String(), m.Name)
-	}
-	if goutil.IsCompositionMethod(*m) {
-		return nil, nil
 	}
 	return m, nil
 }
