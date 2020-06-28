@@ -13,7 +13,7 @@ func (ctl *CorsCtl) CORS_GET() {
 
 func main() {
 	engine := rester.New()
-	engine.Control("/", new(CorsCtl))
+	engine.EasyControl("/", new(CorsCtl))
 	err := engine.ListenAndServe(":8080")
 	if err != nil {
 		panic(err)

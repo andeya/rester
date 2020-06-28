@@ -9,28 +9,28 @@ package main
 
 import "github.com/henrylee2cn/rester"
 
-type Echo1Ctl struct {
+type MwCtl struct {
 	rester.BaseCtl
 	skip bool
 }
 
-func (ctl *Echo1Ctl) Any(args struct {
+func (ctl *MwCtl) Any(args struct {
 	A string `query:"a"`
 }) {
-	ctl.Logger().Printf("Echo1Ctl: a=%s", args.A)
+	ctl.Logger().Printf("MwCtl: a=%s", args.A)
 	if !ctl.skip {
 		ctl.SetUserValue("a", args.A)
 	}
 }
 
-type Echo2Ctl struct {
-	Echo1Ctl
+type EchoCtl struct {
+	MwCtl
 }
 
-func (ctl *Echo2Ctl) GET(args struct {
+func (ctl *EchoCtl) GET(args struct {
 	B []string `query:"b"`
 }) {
-	ctl.Logger().Printf("Echo2Ctl: b=%v", args.B)
+	ctl.Logger().Printf("EchoCtl: b=%v", args.B)
 	ctl.OK(rester.H{
 		"a": ctl.UserValue("a"),
 		"b": args.B,
@@ -39,10 +39,10 @@ func (ctl *Echo2Ctl) GET(args struct {
 
 func main() {
 	engine := rester.New()
-	engine.Control("/", new(Echo2Ctl))
-	engine.ControlFrom("/from", func() rester.Controller {
-		return &Echo2Ctl{
-			Echo1Ctl{skip: true},
+	engine.EasyControl("/", new(EchoCtl))
+	engine.Control("/from", func() rester.Controller {
+		return &EchoCtl{
+			MwCtl{skip: true},
 		}
 	})
 	err := engine.ListenAndServe(":8080")
@@ -52,16 +52,16 @@ func main() {
 	// request:
 	//  GET http://localhost:8080/?a=x&b=y&b=z
 	// log:
-	//  - Echo1Ctl: a=x
-	//  - Echo2Ctl: b=[y z]
+	//  - MwCtl: a=x
+	//  - EchoCtl: b=[y z]
 	// response:
 	//  {"a":"x","b":["y","z"]}
 
 	// request:
 	//  GET http://localhost:8080/from?a=x&b=y&b=z
 	// log:
-	//  - Echo1Ctl: a=x
-	//  - Echo2Ctl: b=[y z]
+	//  - MwCtl: a=x
+	//  - EchoCtl: b=[y z]
 	// response:
 	//  {"a":null,"b":["y","z"]}
 }

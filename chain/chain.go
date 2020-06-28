@@ -98,10 +98,10 @@ func New(obj NestedStruct, find FindFunc) (Func, error) {
 	return ctl.newChainFunc(), nil
 }
 
-// NewFrom creates a chained execution function from NestedStruct factory.
+// Make creates a chained execution function from NestedStruct factory.
 // NOTE:
 //  The method of specifying the name cannot have a return value
-func NewFrom(factory FactoryFunc, find FindFunc) (Func, error) {
+func Make(factory FactoryFunc, find FindFunc) (Func, error) {
 	obj := factory()
 	t := ameda.DereferenceInterfaceValue(reflect.ValueOf(obj)).Type()
 	var recvPtrDiff int

@@ -29,6 +29,7 @@ import (
 )
 
 type (
+	// Controller chain of middleware and handler defined by struct
 	Controller interface {
 		chain.NestedStruct
 		internal2(internalType)
@@ -43,6 +44,7 @@ type (
 		Redirect(code int, location string)
 		Unauthorized(code int, msg string)
 	}
+	// BaseCtl the base controller that each controller must inherit
 	BaseCtl struct {
 		chain.Base
 		*RequestCtx
@@ -60,20 +62,20 @@ type (
 var _ Controller = new(BaseCtl)
 var binder = binding.New(nil).SetLooseZeroMode(true)
 
-// MustNewHandlers creates map {httpMethod:RequestHandler} from the Controller factory.
+// MustMakeHandlers creates map {httpMethod:RequestHandler} from the Controller factory.
 // NOTE:
 //  panic when something goes wrong
-func MustNewHandlers(factory func() Controller) map[string]RequestHandler {
-	handlers, err := NewHandlers(factory)
+func MustMakeHandlers(factory func() Controller) map[string]RequestHandler {
+	handlers, err := MakeHandlers(factory)
 	checkNewChainErr(err)
 	return handlers
 }
 
-// MustToHandlers converts the Controller to map {httpMethod:RequestHandler}.
+// MustNewHandlers converts the Controller to map {httpMethod:RequestHandler}.
 // NOTE:
 //  panic when something goes wrong
-func MustToHandlers(c Controller) map[string]RequestHandler {
-	handlers, err := ToHandlers(c)
+func MustNewHandlers(c Controller) map[string]RequestHandler {
+	handlers, err := NewHandlers(c)
 	checkNewChainErr(err)
 	return handlers
 }
@@ -84,15 +86,15 @@ func checkNewChainErr(err error) {
 	}
 }
 
-// NewHandlers creates map {httpMethod:RequestHandler} from the Controller factory.
+// MakeHandlers creates map {httpMethod:RequestHandler} from the Controller factory.
 // NOTE: Any means all http methods
-func NewHandlers(factory func() Controller) (map[string]RequestHandler, error) {
+func MakeHandlers(factory func() Controller) (map[string]RequestHandler, error) {
 	return newHandlers(nil, factory)
 }
 
-// ToHandlers converts the Controller to map {httpMethod:RequestHandler}.
+// NewHandlers converts the Controller to map {httpMethod:RequestHandler}.
 // NOTE: Any means all http methods
-func ToHandlers(c Controller) (map[string]RequestHandler, error) {
+func NewHandlers(c Controller) (map[string]RequestHandler, error) {
 	return newHandlers(c, nil)
 }
 
@@ -106,7 +108,7 @@ func newHandlers(c Controller, factory func() Controller) (map[string]RequestHan
 	for _, httpMethod := range httpMethodList {
 		var fn chain.Func
 		if factory != nil {
-			fn, err = chain.NewFrom(func() chain.NestedStruct {
+			fn, err = chain.Make(func() chain.NestedStruct {
 				return factory()
 			}, newFinder(httpMethod))
 		} else {
@@ -163,10 +165,10 @@ func newCorsFunc(corsMethods map[string]struct{}) RequestHandler {
 	}
 	allowMethods := strings.Join(a, ", ")
 	return func(c *RequestCtx) {
-		c.Response.Header.SetBytesV("Access-Control-Allow-Origin", c.Request.Header.Peek("Origin"))
-		c.Response.Header.Set("Access-Control-Allow-Credentials", "true")
-		c.Response.Header.Set("Access-Control-Allow-Methods", allowMethods)
-		c.Response.Header.SetBytesV("Access-Control-Allow-Headers", c.Request.Header.Peek("Access-Control-Request-Headers"))
+		c.Response.Header.SetBytesV("Access-EasyControl-Allow-Origin", c.Request.Header.Peek("Origin"))
+		c.Response.Header.Set("Access-EasyControl-Allow-Credentials", "true")
+		c.Response.Header.Set("Access-EasyControl-Allow-Methods", allowMethods)
+		c.Response.Header.SetBytesV("Access-EasyControl-Allow-Headers", c.Request.Header.Peek("Access-EasyControl-Request-Headers"))
 		if c.Request.Header.IsOptions() {
 			c.SetStatusCode(fasthttp.StatusNoContent)
 			c.SetBodyString("")

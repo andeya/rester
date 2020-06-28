@@ -28,19 +28,19 @@ type Router struct {
 	controllerNames map[string]string // {controllerName:relativePath}
 }
 
-// ControlFrom routes controller from factory.
+// Control routes controller from factory.
 // NOTE:
 // The same routing controller can be registered repeatedly, but only for the first time;
 // If the controller of the same route registered twice is different, panic
-func (r *Router) ControlFrom(path string, factory func() Controller) {
+func (r *Router) Control(path string, factory func() Controller) {
 	r.control(path, nil, factory)
 }
 
-// Control routes controller.
+// EasyControl routes controller.
 // NOTE:
 // The same routing controller can be registered repeatedly, but only for the first time;
 // If the controller of the same route registered twice is different, panic
-func (r *Router) Control(path string, controller Controller) {
+func (r *Router) EasyControl(path string, controller Controller) {
 	r.control(path, controller, nil)
 }
 
@@ -53,9 +53,9 @@ func (r *Router) control(path string, controller Controller, factory func() Cont
 	}
 	var handlerMap map[string]RequestHandler
 	if factory != nil {
-		handlerMap = MustNewHandlers(factory)
+		handlerMap = MustMakeHandlers(factory)
 	} else {
-		handlerMap = MustToHandlers(controller)
+		handlerMap = MustNewHandlers(controller)
 	}
 	controllerName := getControllerName(controller)
 	for _, httpMethod := range httpMethodList {
