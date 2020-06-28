@@ -60,7 +60,24 @@ type (
 var _ Controller = new(BaseCtl)
 var binder = binding.New(nil).SetLooseZeroMode(true)
 
-// MustToHandlers converts the Controller to map {httpMethod:RequestHandler}
+// MustNewHandlers creates map {httpMethod:RequestHandler} from the Controller factory.
+// NOTE:
+//  panic when something goes wrong
+func MustNewHandlers(factory func() Controller) map[string]RequestHandler {
+	handlers, err := NewHandlers(factory)
+	if err != nil {
+		panic(err)
+	}
+	return handlers
+}
+
+// NewHandlers creates map {httpMethod:RequestHandler} from the Controller factory.
+// NOTE: Any means all http methods
+func NewHandlers(factory func() Controller) (map[string]RequestHandler, error) {
+	return newHandlers(nil, factory)
+}
+
+// MustToHandlers converts the Controller to map {httpMethod:RequestHandler}.
 // NOTE:
 //  panic when something goes wrong
 func MustToHandlers(c Controller) map[string]RequestHandler {
@@ -71,13 +88,28 @@ func MustToHandlers(c Controller) map[string]RequestHandler {
 	return handlers
 }
 
-// ToHandlers converts the Controller to map {httpMethod:RequestHandler}
+// ToHandlers converts the Controller to map {httpMethod:RequestHandler}.
 // NOTE: Any means all http methods
 func ToHandlers(c Controller) (map[string]RequestHandler, error) {
+	return newHandlers(c, nil)
+}
+
+func newHandlers(c Controller, factory func() Controller) (map[string]RequestHandler, error) {
 	handlers := make(map[string]RequestHandler)
 	corsMethods := make(map[string]struct{})
+	if factory != nil {
+		c = factory()
+	}
+	var err error
 	for _, httpMethod := range httpMethodList {
-		fn, err := chain.New(c, newFinder(httpMethod))
+		var fn chain.Func
+		if factory != nil {
+			fn, err = chain.NewFrom(func() chain.NestedStruct {
+				return factory()
+			}, newFinder(httpMethod))
+		} else {
+			fn, err = chain.New(c, newFinder(httpMethod))
+		}
 		switch err {
 		case nil:
 			var cors bool
@@ -122,7 +154,6 @@ func ToHandlers(c Controller) (map[string]RequestHandler, error) {
 	}
 	return handlers, nil
 }
-
 func newCorsFunc(corsMethods map[string]struct{}) RequestHandler {
 	var a []string
 	for m := range corsMethods {

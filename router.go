@@ -22,10 +22,18 @@ import (
 	"github.com/henrylee2cn/ameda"
 )
 
+// Router HTTP router
 type Router struct {
 	router          fasthttprouter.Router
-	controllers     map[string]Controller // {relativePath:Controller}
-	controllerNames map[string]string     // {controllerName:relativePath}
+	controllerNames map[string]string // {controllerName:relativePath}
+}
+
+// ControlFrom routes controller from factory.
+// NOTE:
+// The same routing controller can be registered repeatedly, but only for the first time;
+// If the controller of the same route registered twice is different, panic
+func (r *Router) ControlFrom(path string, factory func() Controller) {
+	r.control(path, nil, factory)
 }
 
 // Control routes controller.
@@ -33,17 +41,22 @@ type Router struct {
 // The same routing controller can be registered repeatedly, but only for the first time;
 // If the controller of the same route registered twice is different, panic
 func (r *Router) Control(path string, controller Controller) {
-	if r.controllers == nil {
-		r.controllers = make(map[string]Controller)
+	r.control(path, controller, nil)
+}
+
+func (r *Router) control(path string, controller Controller, factory func() Controller) {
+	if factory != nil {
+		controller = factory()
 	}
 	if r.controllerNames == nil {
 		r.controllerNames = make(map[string]string)
 	}
-	ctl, ok := r.controllers[path]
-	if ok && reflect.TypeOf(ctl) == reflect.TypeOf(controller) {
-		return
+	var handlerMap map[string]RequestHandler
+	if factory != nil {
+		handlerMap = MustNewHandlers(factory)
+	} else {
+		handlerMap = MustToHandlers(controller)
 	}
-	handlerMap := MustToHandlers(controller)
 	controllerName := getControllerName(controller)
 	for _, httpMethod := range httpMethodList {
 		handler := handlerMap[httpMethod]
@@ -53,7 +66,6 @@ func (r *Router) Control(path string, controller Controller) {
 			r.println(httpMethod, path, controllerName)
 		}
 	}
-	r.controllers[path] = controller
 }
 
 // ServeFiles serves files from the given file system root.
