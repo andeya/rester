@@ -23,11 +23,11 @@ func (*Ctl2) GET() {
 
 func TestRouter_Control(t *testing.T) {
 	var r Router
-	r.EasyControl("/", &Ctl2{})
+	r.DefControl("/", &Ctl2{})
 	defer func() {
 		assert.Equal(t, "a handle is already registered for path '/'", recover())
 	}()
-	r.EasyControl("/", &Ctl2{})
+	r.DefControl("/", &Ctl2{})
 }
 
 func TestRouter_ControlFrom(t *testing.T) {

@@ -28,7 +28,7 @@ type Router struct {
 	controllerNames map[string]string // {controllerName:relativePath}
 }
 
-// Control routes controller from factory.
+// Control registers route with controller factory.
 // NOTE:
 // The same routing controller can be registered repeatedly, but only for the first time;
 // If the controller of the same route registered twice is different, panic
@@ -36,11 +36,11 @@ func (r *Router) Control(path string, factory func() Controller) {
 	r.control(path, nil, factory)
 }
 
-// EasyControl routes controller.
+// DefControl registers the route with the controller's default zero value.
 // NOTE:
 // The same routing controller can be registered repeatedly, but only for the first time;
 // If the controller of the same route registered twice is different, panic
-func (r *Router) EasyControl(path string, controller Controller) {
+func (r *Router) DefControl(path string, controller Controller) {
 	r.control(path, controller, nil)
 }
 

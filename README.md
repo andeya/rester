@@ -39,7 +39,7 @@ func (ctl *EchoCtl) GET(args struct {
 
 func main() {
 	engine := rester.New()
-	engine.EasyControl("/", new(EchoCtl))
+	engine.DefControl("/", new(EchoCtl))
 	engine.Control("/from", func() rester.Controller {
 		return &EchoCtl{
 			MwCtl{skip: true},

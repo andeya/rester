@@ -165,10 +165,10 @@ func newCorsFunc(corsMethods map[string]struct{}) RequestHandler {
 	}
 	allowMethods := strings.Join(a, ", ")
 	return func(c *RequestCtx) {
-		c.Response.Header.SetBytesV("Access-EasyControl-Allow-Origin", c.Request.Header.Peek("Origin"))
-		c.Response.Header.Set("Access-EasyControl-Allow-Credentials", "true")
-		c.Response.Header.Set("Access-EasyControl-Allow-Methods", allowMethods)
-		c.Response.Header.SetBytesV("Access-EasyControl-Allow-Headers", c.Request.Header.Peek("Access-EasyControl-Request-Headers"))
+		c.Response.Header.SetBytesV("Access-Control-Allow-Origin", c.Request.Header.Peek("Origin"))
+		c.Response.Header.Set("Access-Control-Allow-Credentials", "true")
+		c.Response.Header.Set("Access-Control-Allow-Methods", allowMethods)
+		c.Response.Header.SetBytesV("Access-Control-Allow-Headers", c.Request.Header.Peek("Access-Control-Request-Headers"))
 		if c.Request.Header.IsOptions() {
 			c.SetStatusCode(fasthttp.StatusNoContent)
 			c.SetBodyString("")
