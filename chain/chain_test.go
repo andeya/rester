@@ -148,3 +148,60 @@ func TestNew(t *testing.T) {
 	err = fn(ctx)
 	assert.NoError(t, err)
 }
+
+func TestNewFrom(t *testing.T) {
+	ctx := &Context{t}
+	//
+	for _, factory := range []FactoryFunc{
+		func() NestedStruct { return new(T1) },
+		func() NestedStruct { return new(T2) },
+	} {
+		fn, err := NewFrom(factory, FindName("M1"))
+		assert.NoError(t, err)
+		err = fn(ctx)
+		assert.NoError(t, err)
+	}
+	//
+	_, err := NewFrom(func() NestedStruct { return new(T1) }, FindName("Mn"))
+	assert.EqualError(t, err, "no method chain found")
+	//
+	fn, err := NewFrom(func() NestedStruct { return new(T2) }, FindName("M2"))
+	assert.NoError(t, err)
+	err = fn(ctx)
+	assert.NoError(t, err)
+
+	//
+	fn, err = NewFrom(func() NestedStruct { return new(T2) }, FindName("M3"))
+	assert.NoError(t, err)
+	err = fn(ctx)
+	assert.NoError(t, err)
+
+	//
+	fn, err = NewFrom(func() NestedStruct { return new(T1) }, FindName("M4"))
+	assert.NoError(t, err)
+	err = fn(ctx)
+	assert.EqualError(t, err, "T1.M4 test abort")
+
+	//
+	fn, err = NewFrom(func() NestedStruct { return new(T2) }, FindName("M4"))
+	assert.NoError(t, err)
+	err = fn(ctx)
+	assert.EqualError(t, err, "T1.M4 test abort")
+
+	//
+	fn, err = NewFrom(func() NestedStruct { return new(T2) }, FindName("M5"))
+	assert.NoError(t, err)
+	err = fn(ctx)
+	assert.NoError(t, err)
+
+	_, err = NewFrom(func() NestedStruct { return new(T2) }, FindName("M6"))
+	assert.EqualError(t, err, "*chain.T2.M6 has out parameters")
+
+	_, err = NewFrom(func() NestedStruct { return new(T3) }, FindName("M6"))
+	assert.EqualError(t, err, "*chain.T2.M6 has out parameters")
+
+	fn, err = NewFrom(func() NestedStruct { return new(T3) }, FindName("M3"))
+	assert.NoError(t, err)
+	err = fn(ctx)
+	assert.NoError(t, err)
+}

@@ -39,6 +39,8 @@ type (
 	}
 	// FindFunc find the first matched method
 	FindFunc func(reflect.Method) (bool, error)
+	// FactoryFunc creates a new NestedStruct object
+	FactoryFunc func() NestedStruct
 	// Args create input argument
 	Args interface {
 		Init(NestedStruct) error
@@ -49,11 +51,13 @@ type (
 	methodFunc   func(*Base, reflect.Type, reflect.Value)
 	internalType struct{}
 	controller   struct {
-		recv      reflect.Type
-		find      FindFunc
-		methods   []methodFunc
-		recvInfos []recvInfo
-		recvTypes []reflect.Type
+		recv        reflect.Type
+		find        FindFunc
+		methods     []methodFunc
+		recvInfos   []recvInfo
+		recvTypes   []reflect.Type
+		factory     FactoryFunc
+		recvPtrDiff int
 	}
 	recvInfo struct {
 		curOffset   uintptr
@@ -81,6 +85,34 @@ func New(obj NestedStruct, find FindFunc) (Func, error) {
 	ctl := controller{
 		recv: ameda.DereferenceImplementType(reflect.ValueOf(obj)),
 		find: find,
+	}
+	err := ctl.makeMethods(0, ctl.recv)
+	if err != nil {
+		return nil, err
+	}
+	if len(ctl.methods) == 0 {
+		return nil, ErrEmpty
+	}
+	return ctl.newChainFunc(), nil
+}
+
+// NewFrom creates a chained execution function from NestedStruct factory.
+// NOTE:
+//  The method of specifying the name cannot have a return value
+func NewFrom(factory FactoryFunc, find FindFunc) (Func, error) {
+	obj := factory()
+	t := ameda.DereferenceInterfaceValue(reflect.ValueOf(obj)).Type()
+	var recvPtrDiff int
+	for t.Kind() == reflect.Ptr {
+		t = t.Elem()
+		recvPtrDiff--
+	}
+	recvPtrDiff++
+	ctl := controller{
+		recv:        t,
+		find:        find,
+		factory:     factory,
+		recvPtrDiff: recvPtrDiff,
 	}
 	err := ctl.makeMethods(0, ctl.recv)
 	if err != nil {
@@ -176,16 +208,24 @@ func (c *controller) insertRecvInfo(curOffset uintptr, curTypeElem, curType refl
 }
 
 func (c *controller) newRecvs() (NestedStruct, []reflect.Value) {
+	var topRecvObj NestedStruct
+	var topRecvValue reflect.Value
+	if c.factory == nil {
+		topRecvValue = reflect.New(c.recvInfos[0].curTypeElem)
+		topRecvObj = topRecvValue.Interface().(NestedStruct)
+	} else {
+		topRecvObj = c.factory()
+		topRecvValue = ameda.ReferenceValue(reflect.ValueOf(topRecvObj), c.recvPtrDiff)
+	}
+	lastPtr := topRecvValue.Pointer()
 	n := len(c.recvInfos)
 	recvs := make([]reflect.Value, n)
-	topRecv := reflect.New(c.recvInfos[0].curTypeElem)
-	lastPtr := topRecv.Pointer()
 	for i, info := range c.recvInfos {
 		v := reflect.NewAt(info.curTypeElem, unsafe.Pointer(lastPtr+info.curOffset))
 		lastPtr = v.Pointer()
 		recvs[n-1-i] = v // reverse
 	}
-	return topRecv.Interface().(NestedStruct), recvs
+	return topRecvObj, recvs
 }
 
 func (c *controller) insertMethod(m methodFunc) {
