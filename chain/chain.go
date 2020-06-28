@@ -215,7 +215,7 @@ func (c *controller) newRecvs() (NestedStruct, []reflect.Value) {
 		topRecvObj = topRecvValue.Interface().(NestedStruct)
 	} else {
 		topRecvObj = c.factory()
-		topRecvValue = ameda.ReferenceValue(reflect.ValueOf(topRecvObj), c.recvPtrDiff)
+		topRecvValue = ameda.ReferenceValue(ameda.DereferenceInterfaceValue(reflect.ValueOf(topRecvObj)), c.recvPtrDiff)
 	}
 	lastPtr := topRecvValue.Pointer()
 	n := len(c.recvInfos)
