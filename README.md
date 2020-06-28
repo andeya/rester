@@ -56,3 +56,9 @@ func main() {
 ## Binding
 
 [binding doc](https://github.com/henrylee2cn/rester/blob/master/binding/README.md)
+
+## Controller
+
+Design of method call chain for anonymous field of controller
+
+![Struct Method Chain](https://github.com/henrylee2cn/rester/raw/master/doc/chain.png)
